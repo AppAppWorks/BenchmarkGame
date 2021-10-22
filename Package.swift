@@ -6,10 +6,18 @@ import PackageDescription
 let package = Package(
     name: "BenchmarkGame",
     products: [
-        // Products define the executables and libraries a package produces, and make them visible to other packages.
+        .executable(
+            name: "Fasta",
+            targets: ["Fasta"]),
         .library(
             name: "BenchmarkGame",
             targets: ["BenchmarkGame"]),
+        .executable(
+            name: "BinaryTrees",
+            targets: ["BinaryTrees"]),
+        .executable(
+            name: "BinaryTrees-Fast",
+            targets: ["BinaryTrees_Fast"]),
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
@@ -24,5 +32,26 @@ let package = Package(
         .testTarget(
             name: "BenchmarkGameTests",
             dependencies: ["BenchmarkGame"]),
+        .target(
+            name: "Fasta",
+            swiftSettings: [
+                .unsafeFlags(["-Ounchecked"], .when(configuration: .release)),
+            ]
+        ),
+        .testTarget(
+            name: "FastaTests",
+            dependencies: ["Fasta"]),
+        .target(
+            name: "BinaryTrees",
+            swiftSettings: [
+                .unsafeFlags(["-Ounchecked"], .when(configuration: .release)),
+            ]
+        ),
+        .target(
+            name: "BinaryTrees_Fast",
+            swiftSettings: [
+                .unsafeFlags(["-Ounchecked"], .when(configuration: .release)),
+            ]
+        ),
     ]
 )
