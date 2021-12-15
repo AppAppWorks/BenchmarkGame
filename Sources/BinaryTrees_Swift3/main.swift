@@ -11,12 +11,13 @@
 import Dispatch
 import Foundation
 
-indirect enum Tree {
+public indirect enum Tree {
     case Empty
     case Node(left: Tree, right: Tree)
 }
 
-func itemCheck(_ tree: Tree) -> UInt32 {
+@inlinable
+public func itemCheck(_ tree: Tree) -> UInt32 {
     switch tree {
     case .Node(let left, let right):
         switch (left, right) {
@@ -30,7 +31,8 @@ func itemCheck(_ tree: Tree) -> UInt32 {
     }
 }
 
-func bottomUpTree(_ depth: UInt32) -> Tree {
+@inlinable
+public func bottomUpTree(_ depth: UInt32) -> Tree {
     if depth > 0 {
         return .Node(left: bottomUpTree(depth - 1),
                      right: bottomUpTree(depth - 1))
@@ -39,7 +41,8 @@ func bottomUpTree(_ depth: UInt32) -> Tree {
     return .Node(left: .Empty, right: .Empty)
 }
 
-func inner(depth: UInt32, iterations: UInt32) -> String {
+@inlinable
+public func inner(depth: UInt32, iterations: UInt32) -> String {
     var chk = UInt32(0)
     for _ in 0..<iterations {
         let a = bottomUpTree(depth)
@@ -57,60 +60,65 @@ if CommandLine.argc > 1 {
     n = 10
 }
 
-let minDepth: UInt32 = 4
-let maxDepth = (n > minDepth + 2) ? n : minDepth + 2
-var messages: [UInt32: String] = [:]
-let depth = maxDepth + 1
+@inlinable
+public func benchmark(_ n: UInt32) {
+    let minDepth: UInt32 = 4
+    let maxDepth = (n > minDepth + 2) ? n : minDepth + 2
+    var messages: [UInt32: String] = [:]
+    let depth = maxDepth + 1
 
-let group = DispatchGroup()
+    let group = DispatchGroup()
 
-let workerQueue = DispatchQueue(label: "workerQueue", qos: .userInteractive, attributes: .concurrent)
-let messageQueue = DispatchQueue(label: "messageQueue", qos: .background)
-
-group.enter()
-workerQueue.async {
-    let tree = bottomUpTree(depth)
-
-    messageQueue.async {
-        messages[0] = "stretch tree of depth \(depth)\t check: \(itemCheck(tree))"
-        group.leave()
-    }
-}
-
-group.enter()
-workerQueue.async {
-    let longLivedTree = bottomUpTree(maxDepth)
-
-    messageQueue.async {
-        messages[UINT32_MAX] = "long lived tree of depth \(maxDepth)\t check: \(itemCheck(longLivedTree))"
-        group.leave()
-    }
-}
-
-let halfDepth = (minDepth / 2)
-let halfMaxDepth = (maxDepth / 2 + 1)
-let itt = Int(halfMaxDepth - halfDepth)
-
-DispatchQueue.concurrentPerform(iterations: itt, execute: { idx in
-    let depth = (halfDepth + UInt32(idx)) * 2
-    let iterations = UInt32(1 << (maxDepth - depth + minDepth))
+    let workerQueue = DispatchQueue(label: "workerQueue", qos: .userInteractive, attributes: .concurrent)
+    let messageQueue = DispatchQueue(label: "messageQueue", qos: .background)
 
     group.enter()
     workerQueue.async {
-        let msg = inner(depth: depth, iterations: iterations)
+        let tree = bottomUpTree(depth)
+
         messageQueue.async {
-            messages[depth] = msg
+            messages[0] = "stretch tree of depth \(depth)\t check: \(itemCheck(tree))"
             group.leave()
         }
     }
-})
 
-// Wait for all the operations to finish
-group.wait()
+    group.enter()
+    workerQueue.async {
+        let longLivedTree = bottomUpTree(maxDepth)
 
-for msg in messages.sorted(by: { $0.0 < $1.0 }) {
-    print(msg.value)
+        messageQueue.async {
+            messages[UINT32_MAX] = "long lived tree of depth \(maxDepth)\t check: \(itemCheck(longLivedTree))"
+            group.leave()
+        }
+    }
+
+    let halfDepth = (minDepth / 2)
+    let halfMaxDepth = (maxDepth / 2 + 1)
+    let itt = Int(halfMaxDepth - halfDepth)
+
+    DispatchQueue.concurrentPerform(iterations: itt, execute: { idx in
+        let depth = (halfDepth + UInt32(idx)) * 2
+        let iterations = UInt32(1 << (maxDepth - depth + minDepth))
+
+        group.enter()
+        workerQueue.async {
+            let msg = inner(depth: depth, iterations: iterations)
+            messageQueue.async {
+                messages[depth] = msg
+                group.leave()
+            }
+        }
+    })
+
+    // Wait for all the operations to finish
+    group.wait()
+
+    for msg in messages.sorted(by: { $0.0 < $1.0 }) {
+        print(msg.value)
+    }
 }
+
+benchmark(n)
     
 //notes, command-line, and program output
 //NOTES:

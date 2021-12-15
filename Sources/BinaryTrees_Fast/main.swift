@@ -10,7 +10,8 @@
 import Dispatch
 import Foundation
 
-extension BinaryInteger {
+public extension BinaryInteger {
+    @inlinable
     func exp(_ power: Self) -> Self {
         var result: Self = 1
         var base = self
@@ -32,11 +33,14 @@ extension BinaryInteger {
 // boost performance by eliminating almost all malloc and dealloc
 // the backing storage is an array of offsets, similar to pointers to Tree in Rust #5
 // this structure can hold up to 2^32 - 1 nodes
-struct Tree {
-    private var storage: [(UInt32, UInt32)]
-    private let offset: UInt32
+public struct Tree {
+    @usableFromInline
+    var storage: [(UInt32, UInt32)]
+    @usableFromInline
+    let offset: UInt32
     
-    private static func tree(depth: UInt32, offset: inout Int, storage: UnsafeMutableBufferPointer<(UInt32, UInt32)>) -> UInt32 {
+    @usableFromInline
+    static func tree(depth: UInt32, offset: inout Int, storage: UnsafeMutableBufferPointer<(UInt32, UInt32)>) -> UInt32 {
         guard depth > 0 else {
             return 0
         }
@@ -50,38 +54,21 @@ struct Tree {
         return .init(oldOffset + 1)
     }
     
-    var isEmpty: Bool {
-        offset == 0
+    @usableFromInline
+    init(storage: [(UInt32, UInt32)], offset: UInt32) {
+        self.storage = storage
+        self.offset = offset
     }
     
-    var left: Tree? {
-        guard !isEmpty else { return nil }
-        let leftOffset = storage[Int(offset - 1)].0
-        guard leftOffset > 0 else { return nil }
-        return .init(storage: storage,
-                     offset: leftOffset)
-    }
-    
-    var right: Tree? {
-        guard !isEmpty else { return nil }
-        let rightOffset = storage[Int(offset - 1)].0
-        guard rightOffset > 0 else { return nil }
-        return .init(storage: storage,
-                     offset: rightOffset)
-    }
-    
-    func itemCheck() -> UInt32 {
-        guard !isEmpty else { return 1 }
-        return _itemCheck(offset)
-    }
-    
-    private func _itemCheck(_ offset: UInt32) -> UInt32 {
+    @usableFromInline
+    func _itemCheck(_ offset: UInt32) -> UInt32 {
         let (left, right) = storage[Int(offset - 1)]
         return 1 + (left > 0 ? _itemCheck(left) : 1) + (right > 0 ? _itemCheck(right) : 1)
     }
 }
 
-extension Tree {
+public extension Tree {
+    @inlinable
     init(_ depth: UInt32) {
         guard depth > 0 else {
             self.init(storage: [], offset: 0)
@@ -100,10 +87,39 @@ extension Tree {
 
         self.init(storage: storage, offset: 1)
     }
+    
+    @inlinable
+    var isEmpty: Bool {
+        offset == 0
+    }
+    
+    @inlinable
+    var left: Tree? {
+        guard !isEmpty else { return nil }
+        let leftOffset = storage[Int(offset - 1)].0
+        guard leftOffset > 0 else { return nil }
+        return .init(storage: storage,
+                     offset: leftOffset)
+    }
+    
+    @inlinable
+    var right: Tree? {
+        guard !isEmpty else { return nil }
+        let rightOffset = storage[Int(offset - 1)].0
+        guard rightOffset > 0 else { return nil }
+        return .init(storage: storage,
+                     offset: rightOffset)
+    }
+    
+    @inlinable
+    func itemCheck() -> UInt32 {
+        guard !isEmpty else { return 1 }
+        return _itemCheck(offset)
+    }
 }
 
-
-func inner(depth: UInt32, iterations: UInt32) -> String {
+@inlinable
+public func inner(depth: UInt32, iterations: UInt32) -> String {
     var chk: UInt32 = 0
     for _ in 0..<iterations {
         let tree = Tree(depth)
@@ -120,60 +136,65 @@ if CommandLine.argc > 1 {
     n = 10
 }
 
-let minDepth: UInt32 = 4
-let maxDepth = (n > minDepth + 2) ? n : minDepth + 2
-var messages: [UInt32: String] = [:]
-let depth = maxDepth + 1
+@inlinable
+public func benchmark(_ n: UInt32) {
+    let minDepth: UInt32 = 4
+    let maxDepth = (n > minDepth + 2) ? n : minDepth + 2
+    var messages: [UInt32: String] = [:]
+    let depth = maxDepth + 1
 
-let group = DispatchGroup()
+    let group = DispatchGroup()
 
-let workerQueue = DispatchQueue(label: "workerQueue", qos: .userInteractive, attributes: .concurrent)
-let messageQueue = DispatchQueue(label: "messageQueue", qos: .background)
+    let workerQueue = DispatchQueue(label: "workerQueue", qos: .userInteractive, attributes: .concurrent)
+    let messageQueue = DispatchQueue(label: "messageQueue", qos: .background)
 
-group.enter()
-workerQueue.async {
-    let tree = Tree(depth)
-    
-    messageQueue.async {
-        messages[0] = "stretch tree of depth \(depth)\t check: \(tree.itemCheck())"
-        group.leave()
-    }
-}
-
-group.enter()
-workerQueue.async {
-    let longLivedTree = Tree(maxDepth)
-    
-    messageQueue.async {
-        messages[.max] = "long lived tree of depth \(maxDepth)\t check: \(longLivedTree.itemCheck())"
-        group.leave()
-    }
-}
-
-let halfDepth = (minDepth / 2)
-let halfMaxDepth = (maxDepth / 2 + 1)
-let itt = Int(halfMaxDepth - halfDepth)
-
-DispatchQueue.concurrentPerform(iterations: itt, execute: { idx in
-    let depth = (halfDepth + UInt32(idx)) * 2
-    let iterations = UInt32(1 << (maxDepth - depth + minDepth))
-    
     group.enter()
     workerQueue.async {
-        let msg = inner(depth: depth, iterations: iterations)
+        let tree = Tree(depth)
+        
         messageQueue.async {
-            messages[depth] = msg
+            messages[0] = "stretch tree of depth \(depth)\t check: \(tree.itemCheck())"
             group.leave()
         }
     }
-})
 
-// Wait for all the operations to finish
-group.wait()
+    group.enter()
+    workerQueue.async {
+        let longLivedTree = Tree(maxDepth)
+        
+        messageQueue.async {
+            messages[.max] = "long lived tree of depth \(maxDepth)\t check: \(longLivedTree.itemCheck())"
+            group.leave()
+        }
+    }
 
-for msg in messages.sorted(by: { $0.0 < $1.0 }) {
-    print(msg.value)
+    let halfDepth = (minDepth / 2)
+    let halfMaxDepth = (maxDepth / 2 + 1)
+    let itt = Int(halfMaxDepth - halfDepth)
+
+    DispatchQueue.concurrentPerform(iterations: itt, execute: { idx in
+        let depth = (halfDepth + UInt32(idx)) * 2
+        let iterations = UInt32(1 << (maxDepth - depth + minDepth))
+        
+        group.enter()
+        workerQueue.async {
+            let msg = inner(depth: depth, iterations: iterations)
+            messageQueue.async {
+                messages[depth] = msg
+                group.leave()
+            }
+        }
+    })
+
+    // Wait for all the operations to finish
+    group.wait()
+
+    for msg in messages.sorted(by: { $0.0 < $1.0 }) {
+        print(msg.value)
+    }
 }
+
+benchmark(n)
 
 //notes, command-line, and program output
 //NOTES:
