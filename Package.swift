@@ -7,8 +7,11 @@ let package = Package(
     name: "BenchmarkGame",
     products: [
         .executable(
-            name: "Fasta",
-            targets: ["Fasta"]),
+            name: "Fasta-Fast",
+            targets: ["Fasta_Fast"]),
+        .executable(
+            name: "Fasta-Swift3",
+            targets: ["Fasta_Swift3"]),
         .library(
             name: "BenchmarkGame",
             targets: ["BenchmarkGame"]),
@@ -33,14 +36,23 @@ let package = Package(
             name: "BenchmarkGameTests",
             dependencies: ["BenchmarkGame"]),
         .target(
-            name: "Fasta",
+            name: "Fasta_Fast",
+            swiftSettings: [
+                .unsafeFlags(["-Ounchecked"], .when(configuration: .release)),
+            ]
+        ),
+        .target(
+            name: "Fasta_Swift3",
             swiftSettings: [
                 .unsafeFlags(["-Ounchecked"], .when(configuration: .release)),
             ]
         ),
         .testTarget(
-            name: "FastaTests",
-            dependencies: ["Fasta"]),
+            name: "Fasta_FastTests",
+            dependencies: ["Fasta_Fast"]),
+        .testTarget(
+            name: "Fasta_Swift3Tests",
+            dependencies: ["Fasta_Swift3"]),
         .target(
             name: "BinaryTrees_Swift3",
             swiftSettings: [
