@@ -11,8 +11,9 @@ import Fasta_Fast
 
 final class PerformanceTests : XCTestCase {
     func testPerformance() {
+        let n = 25000000
         measure {
-            benchmark(25000000)
+            benchmark(n)
         }
     }
 }
